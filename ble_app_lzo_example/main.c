@@ -82,6 +82,8 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+#include "minilzo.h"
+
 
 #define DEVICE_NAME                     "Nordic_Template"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "NordicSemiconductor"                   /**< Manufacturer. Will be passed to Device Information Service. */
@@ -118,6 +120,8 @@ BLE_ADVERTISING_DEF(m_advertising);                                             
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 
+
+
 /* YOUR_JOB: Declare all services structure your application is using
  *  BLE_XYZ_DEF(m_xyz);
  */
@@ -128,9 +132,107 @@ static ble_uuid_t m_adv_uuids[] =                                               
     {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE}
 };
 
-
 static void advertising_start(bool erase_bonds);
 
+/* We want to compress the data block at 'in' with length 'IN_LEN' to
+ * the block at 'out'. Because the input block may be incompressible,
+ * we must provide a little more output space in case that compression
+ * is not possible.
+ */
+
+#define IN_LEN      (8*1024ul)//(128*1024ul)
+#define OUT_LEN     (IN_LEN + IN_LEN / 16 + 64 + 3)
+
+static unsigned char __LZO_MMODEL in  [ IN_LEN ];
+static unsigned char __LZO_MMODEL out [ OUT_LEN ];
+
+
+/* Work-memory needed for compression. Allocate memory in units
+ * of 'lzo_align_t' (instead of 'char') to make sure it is properly aligned.
+ */
+
+#define HEAP_ALLOC(var,size) \
+    lzo_align_t __LZO_MMODEL var [ ((size) + (sizeof(lzo_align_t) - 1)) / sizeof(lzo_align_t) ]
+
+static HEAP_ALLOC(wrkmem, LZO1X_1_MEM_COMPRESS);
+
+
+static void LZO_demo(void)
+{
+
+    int r;
+    lzo_uint in_len;
+    lzo_uint out_len;
+    lzo_uint new_len;
+
+
+    NRF_LOG_INFO("\nLZO real-time data compression library (v%s, %s).\n",
+           lzo_version_string(), lzo_version_date());
+    NRF_LOG_INFO("Copyright (C) 1996-2017 Markus Franz Xaver Johannes Oberhumer\nAll Rights Reserved.\n\n");
+
+
+    /*
+     * Step 1: initialize the LZO library
+     */
+        if (lzo_init() != LZO_E_OK)
+        {
+            NRF_LOG_INFO("internal error - lzo_init() failed !!!\n");
+            NRF_LOG_INFO("(this usually indicates a compiler bug - try recompiling\nwithout optimizations, and enable '-DLZO_DEBUG' for diagnostics)\n");
+            return 3;
+        }
+        else
+        {
+            NRF_LOG_INFO("Initialize the LZO library");
+        }
+
+    /*
+     * Step 2: prepare the input block that will get compressed.
+     *         We just fill it with zeros in this example program,
+     *         but you would use your real-world data here.
+     */
+        in_len = IN_LEN;
+        lzo_memset(in,0,in_len);
+
+    /*
+     * Step 3: compress from 'in' to 'out' with LZO1X-1
+     */
+        r = lzo1x_1_compress(in,in_len,out,&out_len,wrkmem);
+        if (r == LZO_E_OK)
+        {
+            NRF_LOG_INFO("compressed %lu bytes into %lu bytes\n", (unsigned long) in_len, (unsigned long) out_len);
+        }
+        else
+        {
+            /* this should NEVER happen */
+            NRF_LOG_INFO("internal error - compression failed: %d\n", r);
+            return 2;
+        }
+        /* check for an incompressible block */
+        if (out_len >= in_len)
+        {
+            NRF_LOG_INFO("This block contains incompressible data.\n");
+            return 0;
+        }
+
+    /*
+     * Step 4: decompress again, now going from 'out' to 'in'
+     */
+        new_len = in_len;
+        r = lzo1x_decompress(out,out_len,in,&new_len,NULL);
+        if (r == LZO_E_OK && new_len == in_len)
+        {
+            NRF_LOG_INFO("decompressed %lu bytes back into %lu bytes\n", (unsigned long) out_len, (unsigned long) in_len);
+        }
+        else
+        {
+            /* this should NEVER happen */
+            NRF_LOG_INFO("internal error - decompression failed: %d\n", r);
+            return 1;
+        }
+
+        NRF_LOG_INFO("\nminiLZO simple compression test passed.\n");
+
+}
 
 /**@brief Callback function for asserts in the SoftDevice.
  *
@@ -719,11 +821,15 @@ int main(void)
     conn_params_init();
     peer_manager_init();
 
-    // Start execution.
-    NRF_LOG_INFO("Template example started.");
-    application_timers_start();
 
+
+    // Start execution.
+    NRF_LOG_INFO("Demo to use the LZO Compression / Decompression.");
+
+    application_timers_start();
     advertising_start(erase_bonds);
+
+    LZO_demo();
 
     // Enter main loop.
     for (;;)
