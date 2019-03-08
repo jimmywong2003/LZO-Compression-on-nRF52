@@ -1,5 +1,15 @@
 # LZO-Compression-on-nRF52
 
+## Lossless Compression Algorithm Overview
+
+* Run-length encoding (RLE) – Simple scheme that provides good compression of data containing lots of runs of the same value
+* Huffman coding – Pairs well with other algorithms, used by Unix's pack utility
+* Prediction by partial matching (PPM) – Optimized for compressing plain text
+* bzip2 – Combines Burrows–Wheeler transform with RLE and Huffman coding
+* Lempel-Ziv compression (LZ77 and LZ78) – Dictionary-based algorithm that forms the basis for many other algorithms
+
+
+
 ## Show how to use the LZO compression / decompression library on nRF52 Series
 
 This demo is to add the miniLZO compression / decompression library on the nRF52 series.
@@ -7,6 +17,17 @@ This demo is to add the miniLZO compression / decompression library on the nRF52
 miniLZO is a very lightweight subset of the LZO library intended for easy inclusion with your application. It is generated automatically from the LZO source code and contains the most important LZO functions.
 
 Very easy to use - it only takes a few minutes to add data compression to your application!
+
+## Memory Usage:
+
+### Algorithm size:
+Flash : 3.5KB
+
+### Worst RAM buffer
+
+* Input buffer: IN_LEN 
+* Output buffer: (IN_LEN + IN_LEN / 16 + 64 + 3)
+* Dictionary table (64KB) – working memory for dictionary (Compression need only)
 
 
 ## Requirement
