@@ -27,8 +27,8 @@ Flash : 3.5KB
 
 * Input buffer: IN_LEN 
 * Output buffer: (IN_LEN + IN_LEN / 16 + 64 + 3)
-* Dictionary table (64KB) – working memory for dictionary (Compression need only)
-
+* Compression: Dictionary table (64KB) – working memory for dictionary + Output buffer
+* Decompression: Output buffer 
 
 ## Requirement
 
@@ -37,6 +37,8 @@ Nordic SDK 15.3
 Softdevice : S132v6.1.1 / S140v6.1.1
 
 HW: NRF52832 DK / NRF52840 DK
+
+IDE: Segger Embedded Studio
 
 
 ## Note
